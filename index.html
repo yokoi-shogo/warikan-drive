@@ -1,5 +1,10 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>わりかんドライブ</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="レンタカーと車出しの交通費を概算して、1人あたりの割り勘額を出すツール">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
@@ -49,7 +54,6 @@ label{display:grid;gap:4px;font-size:12px;color:var(--muted);min-width:0}
 .field input,.field select{flex:1;min-width:0;border:0;background:transparent;color:var(--fg);font:500 16px var(--f-num);padding:8px 9px;outline:none}
 .field input[type=text],.field select{font-family:var(--f-body);font-size:15px}
 .field .u{font-size:12px;color:var(--muted);padding-right:9px;white-space:nowrap}
-.field.ai{border-color:var(--ai)}
 .hint{font-size:12px;color:var(--muted);margin:0}
 .hint a,.links a{color:var(--sign);font-weight:700}
 .toggle{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--fg)}
@@ -59,9 +63,6 @@ label{display:grid;gap:4px;font-size:12px;color:var(--muted);min-width:0}
 .btn[disabled]{opacity:.55;cursor:default}
 .btn:focus-visible,.seg button:focus-visible{outline:2px solid var(--sign);outline-offset:2px}
 .row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
-.aibox{background:var(--ai-bg);border-radius:8px;padding:10px 12px;font-size:13px;display:grid;gap:4px}
-.aibox b{color:var(--ai)}
-.chip{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--ai-bg);color:var(--ai);vertical-align:1px}
 .links{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
 details summary{cursor:pointer;font-size:13px;color:var(--muted)}
 details[open] summary{margin-bottom:10px}
@@ -135,6 +136,8 @@ textarea{width:100%;min-height:150px;font:13px var(--f-num);background:var(--bg)
 footer{font-size:12px;color:var(--muted);max-width:72ch}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <header>
@@ -162,14 +165,11 @@ footer{font-size:12px;color:var(--muted);max-width:72ch}
         <label>経由地（なくてOK）<div class="field"><input id="via" type="text" placeholder="例：恵那峡SA"></div></label>
         <label class="toggle"><input id="round" type="checkbox"> 往復で計算する</label>
         <div class="row">
-          <button class="btn primary" type="button" id="lookupBtn">距離と高速代を調べる</button>
-          <button class="btn" type="button" id="stopBtn" hidden>止める</button>
-          <span class="hint" id="lookupMsg"></span>
+          <span class="hint" id="lookupMsg">初期値は例です。出発地と目的地を入れると確認リンクが出るので、調べた距離と高速代を入れてね。</span>
         </div>
-        <div class="aibox" id="aiBox" hidden></div>
         <div class="grid">
-          <label>片道の距離 <span class="chip" id="chipDist" hidden>推定</span><div class="field" id="fDist"><input id="dist" type="number" min="0" inputmode="decimal"><span class="u">km</span></div></label>
-          <label>片道の高速代（普通車・ETC） <span class="chip" id="chipToll" hidden>推定</span><div class="field" id="fToll"><input id="toll" type="number" min="0" step="10" inputmode="numeric"><span class="u">円</span></div></label>
+          <label>片道の距離<div class="field"><input id="dist" type="number" min="0" inputmode="decimal"><span class="u">km</span></div></label>
+          <label>片道の高速代（普通車・ETC）<div class="field"><input id="toll" type="number" min="0" step="10" inputmode="numeric"><span class="u">円</span></div></label>
         </div>
         <div class="links" id="checkLinks"></div>
       </section>
@@ -298,43 +298,13 @@ footer{font-size:12px;color:var(--muted);max-width:72ch}
     </section>
   </div>
 
-  <footer>概算のための試作版。距離と高速代の「推定」はAIによる見積もりなので、Googleマップやドラぷらで確かめてから使ってね。車出しのお礼は実費と維持費の範囲にとどめ、運転への報酬にならないようにする。入力内容はこの端末のブラウザにだけ保存される。</footer>
+  <footer><p id="priceMeta"></p><p id="loadErr" hidden>料金データを読み込めませんでした。ページを開き直してください。</p>概算のための試作版。料金・燃費・距離・高速代はすべて目安の値なので、Googleマップやドラぷらと各社の公式サイトで確かめてから使ってね。車出しのお礼は実費と維持費の範囲にとどめ、運転への報酬にならないようにする。入力内容はこの端末のブラウザにだけ保存される。</footer>
 </div>
 
 <script>
 /* ---------- data ---------- */
-const SIZES={
-  compact:{name:"コンパクト",kmpl:18,seats:5},
-  minivan:{name:"ミニバン",kmpl:12,seats:8},
-  wagon:{name:"ワゴン10人乗り",kmpl:9,seats:10}
-};
-// 24h base (税込・通常期) [料金, 最安クラス表示か], ins = 免責補償/日。null = 公開情報なし
-const COMPANIES=[
-  {id:"times",name:"タイムズカーレンタル",url:"https://rental.timescar.jp/",
-    compact:[8470,false],minivan:[23870,false],wagon:null,ins:{compact:1100,minivan:1100,wagon:1100}},
-  {id:"toyota",name:"トヨタレンタカー",url:"https://rent.toyota.co.jp/",
-    compact:[8580,false],minivan:[13200,true],wagon:null,ins:{compact:1100,minivan:1100,wagon:1100}},
-  {id:"nippon",name:"ニッポンレンタカー",url:"https://www.nipponrentacar.co.jp/",
-    compact:[8910,false],minivan:[16610,true],wagon:null,ins:{compact:1100,minivan:2200,wagon:2200}},
-  {id:"orix",name:"オリックスレンタカー",url:"https://car.orix.co.jp/",
-    compact:[9900,false],minivan:[11550,true],wagon:null,ins:{compact:1100,minivan:2200,wagon:2200}},
-  {id:"nissan",name:"日産レンタカー",url:"https://nissan-rentacar.com/",
-    compact:[9790,false],minivan:[24090,false],wagon:null,ins:{compact:1650,minivan:1650,wagon:1650}},
-  {id:"budget",name:"バジェット",url:"https://www.budgetrentacar.co.jp/",
-    compact:[8580,false],minivan:[13200,true],wagon:null,ins:{compact:1430,minivan:1430,wagon:1430}}
-];
-// タイムズカーシェア：パック料金（24/48/72時間、以降1日ごと）＋距離料金20円/km（20km超過分）。ガソリン代込み
-const SHARE={id:"share",name:"タイムズカーシェア",url:"https://share.timescar.jp/",
-  packs:{compact:{cls:"ベーシック",p:[6600,9900,14300],extra:5500},minivan:{cls:"ミドル",p:[8800,13200,18700],extra:6600},wagon:null},
-  ins:330,perKm:20,freeKm:20};
-const CTYPES={
-  kei:{name:"軽自動車",kmpl:17,seats:4},
-  compact:{name:"コンパクト",kmpl:16,seats:5},
-  hybrid:{name:"ハイブリッド車",kmpl:22,seats:5},
-  suv:{name:"SUV",kmpl:12,seats:5},
-  minivan:{name:"ミニバン",kmpl:10,seats:8},
-  minivanhv:{name:"ミニバン・ハイブリッド",kmpl:16,seats:7}
-};
+// 料金・燃費などは data/rental-prices.json から読み込む（init で代入）
+let SIZES, COMPANIES, SHARE, CTYPES, PRICE_META;
 const PRESETS={
   club:{from:"",to:"",via:"",dist:120,toll:3000,round:true,people:12,days:1,local:20,gas:170,park:1000,other:0,buffer:10,
         rSize:"minivan",rCars:1,cCars:1,cType:"compact",thanks:"10",thanksFixed:2000,company:"cheapest",customBase:20000,customIns:2200},
@@ -344,7 +314,7 @@ const PRESETS={
 const NUM=["dist","toll","people","days","local","gas","park","other","buffer","rCars","cCars","rKmpl","rSeats","cKmpl","cSeats","thanksFixed"];
 const TXT=["from","to","via"];
 const $=id=>document.getElementById(id);
-let mode="club", company="cheapest", customBase=20000, customIns=2200, aiFlags={dist:false,toll:false};
+let mode="club", company="cheapest", customBase=20000, customIns=2200;
 const yen=n=>Math.round(n).toLocaleString("ja-JP")+"円";
 const fmt=n=>Math.round(n).toLocaleString("ja-JP");
 const up=(n,u)=>Math.ceil(n/u)*u;
@@ -358,7 +328,7 @@ function applyPreset(p){
   NUM.concat(TXT).forEach(k=>{if(k in p)$(k).value=p[k]});
   $("round").checked=p.round; $("rSize").value=p.rSize; $("cType").value=p.cType;
   setThanks(p.thanks); company=p.company; customBase=p.customBase; customIns=p.customIns;
-  applySize(); applyCType(); setAi(false,false);
+  applySize(); applyCType();
 }
 function read(){
   const v={}; NUM.forEach(k=>v[k]=Math.max(0,parseFloat($(k).value)||0)); TXT.forEach(k=>v[k]=$(k).value.trim());
@@ -528,57 +498,9 @@ function render(){
   save();
 }
 function save(){
-  try{localStorage.setItem("warikan-drive-v2",JSON.stringify({mode,v:read(),company,customBase,customIns,aiFlags}))}catch(e){}
+  try{localStorage.setItem("warikan-drive-v2",JSON.stringify({mode,v:read(),company,customBase,customIns}))}catch(e){}
 }
 
-/* ---------- AI lookup ---------- */
-function setAi(d,t){
-  aiFlags={dist:d,toll:t};
-  $("chipDist").hidden=!d; $("chipToll").hidden=!t;
-  $("fDist").classList.toggle("ai",d); $("fToll").classList.toggle("ai",t);
-}
-let sampleFn=null, ctl=null;
-const ERR={not_granted:"Claudeの利用が許可されなかったので、距離と高速代は手で入れてね。",sampling_disabled:"このアカウントでは自動で調べられない。手で入れてね。",
-  rate_limited:"少し時間をおいてからもう一度押してね。",session_expired:"ログインし直してからもう一度押してね。",
-  invalid_json:"うまく読み取れなかった。もう一度押してみて。",refused:"この内容では調べられなかった。地名を変えてみて。"};
-async function lookup(){
-  const from=$("from").value.trim(), to=$("to").value.trim(), via=$("via").value.trim();
-  if(!from||!to){$("lookupMsg").textContent="出発地と目的地を入れてね。";return;}
-  if(!sampleFn){$("lookupMsg").textContent="ここでは自動で調べられない。下のリンクで確かめて手で入れてね。";return;}
-  ctl=new AbortController();
-  $("lookupBtn").disabled=true; $("stopBtn").hidden=false;
-  $("lookupMsg").textContent="調べています…（20〜60秒くらい）"; $("aiBox").hidden=true;
-  const prompt=`日本国内を普通乗用車で移動する。
-出発地：${from}
-目的地：${to}
-${via?`経由地：${via}\n`:""}
-Googleマップのルート検索で最初に出る推奨ルート（高速道路を使うのが自然なら使う）を想定し、片道の
-・走行距離（km）
-・高速道路・有料道路の通行料金（普通車・ETC・割引なしの通常料金、円）
-を推定してください。
-
-推定のしかた：
-- まず使うインターチェンジと高速道路の区間を決め、「出発地→乗るIC」「IC間」「降りるIC→目的地」の距離を足して求める。
-- 余裕や迂回分を上乗せしない。直線距離の1.2〜1.3倍程度が道路距離の目安で、それを大きく超えるなら見直す。
-- 高速を使わないのが自然なら通行料金は0。
-- 地名があいまいなら最も一般的な場所を想定し、その想定をnoteに書く。
-
-次の形のJSONだけで答えてください：
-{"distance_km": 数値, "toll_yen": 数値, "route": "乗るIC→降りるICと道路名（40字以内）", "note": "想定や注意点（60字以内、なければ空文字）", "confidence": "high" | "medium" | "low"}`;
-  try{
-    const res=await sampleFn.json(prompt,{signal:ctl.signal});
-    const d=Number(res&&res.distance_km), t=Number(res&&res.toll_yen);
-    if(!isFinite(d)||d<=0) throw {code:"invalid_json"};
-    $("dist").value=Math.round(d); $("toll").value=isFinite(t)&&t>=0?Math.round(t/10)*10:0; setAi(true,true);
-    const conf={high:"高め",medium:"ふつう",low:"低め"}[res.confidence]||"ふつう";
-    $("aiBox").innerHTML=`<div><b>推定ルート</b>　${esc(res.route||"")}</div>${res.note?`<div>${esc(res.note)}</div>`:""}<div class="mini">確からしさ：${conf}。AIの推定なので、下のリンクで確かめて違ったら数字を直してね。</div>`;
-    $("aiBox").hidden=false; $("lookupMsg").textContent="";
-    render();
-  }catch(e){
-    $("lookupMsg").textContent=e&&e.code==="cancelled"?"止めました。":(ERR[e&&e.code]||"うまくいかなかった。もう一度押すか、手で入れてね。");
-    if(e&&(e.code==="not_granted"||e.code==="sampling_disabled")) $("lookupBtn").hidden=true;
-  }finally{$("lookupBtn").disabled=false;$("stopBtn").hidden=true;}
-}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
 /* ---------- wiring ---------- */
@@ -593,11 +515,9 @@ $("m-solo").onclick=()=>setMode("solo",true);
 $("rSize").addEventListener("change",()=>{applySize();render();});
 $("cType").addEventListener("change",()=>{applyCType();render();});
 document.querySelectorAll('input[name=thanks]').forEach(r=>r.addEventListener("change",()=>{$("fixedWrap").hidden=getThanks()!=="fixed";render();}));
-NUM.concat(TXT).forEach(k=>$(k).addEventListener("input",()=>{if(k==="dist")setAi(false,aiFlags.toll);if(k==="toll")setAi(aiFlags.dist,false);render();}));
+NUM.concat(TXT).forEach(k=>$(k).addEventListener("input",render));
 $("round").addEventListener("change",render);
 $("autoBtn").onclick=autoCars;
-$("lookupBtn").onclick=lookup;
-$("stopBtn").onclick=()=>ctl&&ctl.abort();
 $("resetBtn").onclick=()=>setMode(mode,true);
 $("copyBtn").onclick=()=>{
   const t=$("summary").value;
@@ -605,7 +525,13 @@ $("copyBtn").onclick=()=>{
   .catch(()=>{const ta=$("summary");ta.hidden=false;ta.focus();ta.select();$("copyMsg").textContent="自動でコピーできなかったので、下のテキストを選んでコピーしてね。";});
 };
 
-(function init(){
+async function loadPrices(){
+  const res=await fetch("data/rental-prices.json"); if(!res.ok) throw new Error(res.status);
+  const d=await res.json(); ({sizes:SIZES,companies:COMPANIES,share:SHARE,ctypes:CTYPES}=d); PRICE_META=d;
+  const src=d.sources.map(x=>`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join("、");
+  $("priceMeta").innerHTML=`料金データの更新日：${esc(d.updatedAt)}。出典：${src}`;
+}
+function init(){
   let s=null; try{s=JSON.parse(localStorage.getItem("warikan-drive-v2"))}catch(e){}
   if(s&&s.v){
     applyPreset(PRESETS[s.mode||"club"]);
@@ -613,12 +539,12 @@ $("copyBtn").onclick=()=>{
     $("round").checked=!!s.v.round; if(s.v.rSize)$("rSize").value=s.v.rSize; if(s.v.cType)$("cType").value=s.v.cType;
     if(s.v.thanks)setThanks(s.v.thanks);
     company=s.company||"cheapest"; customBase=s.customBase??customBase; customIns=s.customIns??customIns;
-    if(s.aiFlags)setAi(!!s.aiFlags.dist,!!s.aiFlags.toll);
     setMode(s.mode||"club",false);
   } else setMode("club",true);
-  (async()=>{
-    try{sampleFn=window.claude&&window.claude.use? await window.claude.use("sample"):null;}catch(e){sampleFn=null;}
-    if(!sampleFn){$("lookupBtn").hidden=true;$("lookupMsg").textContent="このページでは自動で調べられないので、Googleマップとドラぷらで調べた値を入れてね。";}
-  })();
-})();
+}
+loadPrices().then(init).catch(()=>{
+  $("loadErr").hidden=false;
+});
 </script>
+</body>
+</html>

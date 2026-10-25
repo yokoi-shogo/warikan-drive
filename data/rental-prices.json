@@ -1,0 +1,220 @@
+{
+  "updatedAt": "2025-05-30",
+  "note": "レンタカー料金は2024〜2025年に公開されていた通常期の目安（税込・会員割引なし）。予約前に各社の公式サイトで確認すること。",
+  "sources": [
+    {
+      "title": "タイムズカーレンタル 料金ガイド",
+      "url": "https://crexgroup.com/ja/travel/transportation/times-car-rental-guide/"
+    },
+    {
+      "title": "カーミー（2025-05-30更新）",
+      "url": "https://car-me.jp/articles/9149"
+    },
+    {
+      "title": "mybest レンタカー比較",
+      "url": "https://my-best.com/22623"
+    },
+    {
+      "title": "パーク24 ニュースリリース（カーシェア距離料金改定）",
+      "url": "https://park24.co.jp/news/20250410-1.pdf"
+    },
+    {
+      "title": "プライシー",
+      "url": "https://www.pricey.jp/web/articles/4785"
+    }
+  ],
+  "sizes": {
+    "compact": {
+      "name": "コンパクト",
+      "kmpl": 18,
+      "seats": 5
+    },
+    "minivan": {
+      "name": "ミニバン",
+      "kmpl": 12,
+      "seats": 8
+    },
+    "wagon": {
+      "name": "ワゴン10人乗り",
+      "kmpl": 9,
+      "seats": 10
+    }
+  },
+  "companies": [
+    {
+      "id": "times",
+      "name": "タイムズカーレンタル",
+      "url": "https://rental.timescar.jp/",
+      "compact": [
+        8470,
+        false
+      ],
+      "minivan": [
+        23870,
+        false
+      ],
+      "wagon": null,
+      "ins": {
+        "compact": 1100,
+        "minivan": 1100,
+        "wagon": 1100
+      }
+    },
+    {
+      "id": "toyota",
+      "name": "トヨタレンタカー",
+      "url": "https://rent.toyota.co.jp/",
+      "compact": [
+        8580,
+        false
+      ],
+      "minivan": [
+        13200,
+        true
+      ],
+      "wagon": null,
+      "ins": {
+        "compact": 1100,
+        "minivan": 1100,
+        "wagon": 1100
+      }
+    },
+    {
+      "id": "nippon",
+      "name": "ニッポンレンタカー",
+      "url": "https://www.nipponrentacar.co.jp/",
+      "compact": [
+        8910,
+        false
+      ],
+      "minivan": [
+        16610,
+        true
+      ],
+      "wagon": null,
+      "ins": {
+        "compact": 1100,
+        "minivan": 2200,
+        "wagon": 2200
+      }
+    },
+    {
+      "id": "orix",
+      "name": "オリックスレンタカー",
+      "url": "https://car.orix.co.jp/",
+      "compact": [
+        9900,
+        false
+      ],
+      "minivan": [
+        11550,
+        true
+      ],
+      "wagon": null,
+      "ins": {
+        "compact": 1100,
+        "minivan": 2200,
+        "wagon": 2200
+      }
+    },
+    {
+      "id": "nissan",
+      "name": "日産レンタカー",
+      "url": "https://nissan-rentacar.com/",
+      "compact": [
+        9790,
+        false
+      ],
+      "minivan": [
+        24090,
+        false
+      ],
+      "wagon": null,
+      "ins": {
+        "compact": 1650,
+        "minivan": 1650,
+        "wagon": 1650
+      }
+    },
+    {
+      "id": "budget",
+      "name": "バジェット",
+      "url": "https://www.budgetrentacar.co.jp/",
+      "compact": [
+        8580,
+        false
+      ],
+      "minivan": [
+        13200,
+        true
+      ],
+      "wagon": null,
+      "ins": {
+        "compact": 1430,
+        "minivan": 1430,
+        "wagon": 1430
+      }
+    }
+  ],
+  "share": {
+    "id": "share",
+    "name": "タイムズカーシェア",
+    "url": "https://share.timescar.jp/",
+    "packs": {
+      "compact": {
+        "cls": "ベーシック",
+        "p": [
+          6600,
+          9900,
+          14300
+        ],
+        "extra": 5500
+      },
+      "minivan": {
+        "cls": "ミドル",
+        "p": [
+          8800,
+          13200,
+          18700
+        ],
+        "extra": 6600
+      },
+      "wagon": null
+    },
+    "ins": 330,
+    "perKm": 20,
+    "freeKm": 20
+  },
+  "ctypes": {
+    "kei": {
+      "name": "軽自動車",
+      "kmpl": 17,
+      "seats": 4
+    },
+    "compact": {
+      "name": "コンパクト",
+      "kmpl": 16,
+      "seats": 5
+    },
+    "hybrid": {
+      "name": "ハイブリッド車",
+      "kmpl": 22,
+      "seats": 5
+    },
+    "suv": {
+      "name": "SUV",
+      "kmpl": 12,
+      "seats": 5
+    },
+    "minivan": {
+      "name": "ミニバン",
+      "kmpl": 10,
+      "seats": 8
+    },
+    "minivanhv": {
+      "name": "ミニバン・ハイブリッド",
+      "kmpl": 16,
+      "seats": 7
+    }
+  }
+}
