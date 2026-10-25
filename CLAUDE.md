@@ -6,9 +6,12 @@
 - 使う場面：遠征の計画段階で「1人いくら集めればいいか」を決め、LINEで部員に共有する
 - 使う人：部員（スマホで開くことが多い）。プログラミングの知識がない人も使う
 
-## 現状（v0：claude.ai のArtifactで作った試作版）
+## 現状（フェーズ1まで完了：公開できる形）
 
-`index.html` 1ファイルで完結している。HTML / CSS / JavaScript をすべて含み、外部ライブラリなし（Google Fontsのみ）。
+- `index.html`：画面・計算ロジック（HTML / CSS / JavaScript。外部ライブラリなし、Google Fontsのみ）
+- `data/rental-prices.json`：料金・燃費・定員のデータ。更新日（`updatedAt`）と出典（`sources`）を持つ。`index.html` が `fetch` で読み込む（`file://` で直接開くと動かない。確認は `python3 -m http.server` などで）
+- 「距離と高速代を調べる」ボタン（AI推定）は外した。距離・高速代は手入力で、Googleマップ・ドラぷらの確認リンクを出す（フェーズ2で地図APIに置き換える）
+- 料金を更新するときは `data/rental-prices.json` だけ直し、`updatedAt` と `sources` も更新する
 
 ### 画面構成
 左に入力、右に結果（狭い画面では1カラム）。
@@ -40,7 +43,7 @@
 - 1人あたり = 総額 ÷ 人数 を100円単位で切り上げ
 - 会社による幅 = 比較表のすべての会社（見積もり行を除く）で同じ条件を計算したときの1人あたりの最安〜最高
 
-### データ（index.html の `COMPANIES` / `SHARE` / `SIZES` / `CTYPES`）
+### データ（`data/rental-prices.json` の `companies` / `share` / `sizes` / `ctypes`）
 レンタカー料金は2024〜2025年に公開されていた通常期の目安（税込・会員割引なし）。
 
 | 会社 | コンパクト24h | ミニバン24h | 補償/日 |
@@ -69,9 +72,7 @@
 - https://park24.co.jp/news/20250410-1.pdf
 - https://www.pricey.jp/web/articles/4785
 
-### Artifact特有の部分（移行時に置き換える）
-- **「距離と高速代を調べる」**は claude.ai Artifact の `window.claude.use("sample")`（閲覧者のClaudeに推定させる機能）を使っている。claude.ai の外では動かないので、地図APIに置き換える
-- 推定はやや大きめに出る傾向があると、使っている本人から報告あり
+### その他
 - 入力は `localStorage` のキー `warikan-drive-v2` に保存している
 
 ## 方針
