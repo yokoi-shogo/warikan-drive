@@ -1,0 +1,624 @@
+<title>わりかんドライブ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: 入力（左）と比較結果（右・スクロール追従）。狭い画面は1カラム。高速道路の案内標識の緑をアクセントに */
+:root{
+  --bg:#f2f4f1; --surface:#ffffff; --fg:#18211d; --muted:#5b6862; --line:#d6dcd8; --soft:#e7ece9;
+  --sign:#0b6b45; --sign-fg:#ffffff; --sign-soft:#e2f0e8;
+  --rent:#2b63a6; --car:#b4621c; --mix:#2f8a8a; --warn:#a33a2a; --warn-bg:#fbeae6; --ai:#6b4fb0; --ai-bg:#efeafa;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --f-num:"JetBrains Mono",ui-monospace,"SFMono-Regular",monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111714; --surface:#19211d; --fg:#e6ece8; --muted:#98a69f; --line:#2c3732; --soft:#222c27;
+  --sign:#33a473; --sign-fg:#08110c; --sign-soft:#1c3328;
+  --rent:#77a9e8; --car:#e69a55; --mix:#5cc4c0; --warn:#ff917e; --warn-bg:#3a201b; --ai:#b8a2f0; --ai-bg:#2a2340;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111714; --surface:#19211d; --fg:#e6ece8; --muted:#98a69f; --line:#2c3732; --soft:#222c27;
+  --sign:#33a473; --sign-fg:#08110c; --sign-soft:#1c3328;
+  --rent:#77a9e8; --car:#e69a55; --mix:#5cc4c0; --warn:#ff917e; --warn-bg:#3a201b; --ai:#b8a2f0; --ai-bg:#2a2340;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1100px;margin:0 auto;display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:42px;height:42px;border-radius:10px;background:var(--sign);display:grid;place-items:center;flex:none}
+.brand h1{margin:0;font-weight:900;font-size:22px;letter-spacing:.06em;line-height:1.2}
+.brand p{margin:0;font-size:12px;color:var(--muted);letter-spacing:.04em}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--soft);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--muted);font:700 13px var(--f-body);padding:6px 14px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.stack{display:grid;gap:16px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:14px;min-width:0}
+h2{font-size:15px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px}
+h2 .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+h2 .step{font:700 11px var(--f-num);color:var(--sign);background:var(--sign-soft);border-radius:4px;padding:1px 6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px 12px}
+label{display:grid;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.field{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--bg);overflow:hidden}
+.field:focus-within{outline:2px solid var(--sign);outline-offset:1px}
+.field input,.field select{flex:1;min-width:0;border:0;background:transparent;color:var(--fg);font:500 16px var(--f-num);padding:8px 9px;outline:none}
+.field input[type=text],.field select{font-family:var(--f-body);font-size:15px}
+.field .u{font-size:12px;color:var(--muted);padding-right:9px;white-space:nowrap}
+.field.ai{border-color:var(--ai)}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.hint a,.links a{color:var(--sign);font-weight:700}
+.toggle{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--fg)}
+.toggle input{width:18px;height:18px;accent-color:var(--sign)}
+.btn{font:700 14px var(--f-body);border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.btn.primary{background:var(--sign);color:var(--sign-fg);border-color:var(--sign)}
+.btn[disabled]{opacity:.55;cursor:default}
+.btn:focus-visible,.seg button:focus-visible{outline:2px solid var(--sign);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.aibox{background:var(--ai-bg);border-radius:8px;padding:10px 12px;font-size:13px;display:grid;gap:4px}
+.aibox b{color:var(--ai)}
+.chip{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--ai-bg);color:var(--ai);vertical-align:1px}
+.links{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+details[open] summary{margin-bottom:10px}
+
+/* rental company table */
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em}
+td.num{font-family:var(--f-num)}
+.co label{display:flex;flex-direction:row;align-items:center;gap:8px;font-size:14px;color:var(--fg);cursor:pointer}
+.co input{accent-color:var(--rent);width:16px;height:16px}
+tr.sel td{background:color-mix(in srgb,var(--rent) 10%,transparent)}
+.mini{font-size:11px;color:var(--muted)}
+.cheap{font-size:10px;font-weight:700;color:var(--sign);background:var(--sign-soft);border-radius:4px;padding:0 5px;margin-left:4px}
+.est{color:var(--muted)}
+.custom input{width:90px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:500 13px var(--f-num);padding:4px 6px;text-align:right}
+
+/* thank-you choice */
+.choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.choice label{border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;display:grid;gap:2px;color:var(--fg);font-size:13px;font-weight:700}
+.choice label span{font-size:11px;color:var(--muted);font-weight:400}
+.choice input{position:absolute;opacity:0;pointer-events:none}
+.choice label:has(input:checked){border-color:var(--car);box-shadow:0 0 0 1px var(--car)}
+.choice label:has(input:focus-visible){outline:2px solid var(--car);outline-offset:2px}
+
+/* results */
+.result{position:sticky;top:max(12px,env(safe-area-inset-top,0px))}
+@media (max-width:860px){.result{position:static}}
+.duo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.duo{grid-template-columns:1fr}}
+.combo{display:grid;gap:8px}
+.crow{display:grid;grid-template-columns:minmax(90px,1fr) minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center}
+.crow .nm{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
+.crow .fix{font-size:13px;color:var(--muted);padding:8px 9px}
+.chead{font-size:11px;color:var(--muted);font-weight:700}
+.share{font-size:10px;font-weight:700;color:var(--ai);background:var(--ai-bg);border-radius:4px;padding:0 5px;margin-left:4px}
+.plan{border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:2px;position:relative;min-width:0}
+.plan.best{border-color:var(--sign);box-shadow:0 0 0 1px var(--sign)}
+.plan .tag{font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px}
+.plan .who{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plan .per{font-family:var(--f-num);font-weight:700;font-size:clamp(20px,3.2vw,26px);font-variant-numeric:tabular-nums;line-height:1.25}
+.plan .per span{font:400 13px var(--f-body);color:var(--muted);margin-left:2px}
+.plan .tot{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rng{margin-top:6px;display:grid;gap:3px}
+.rng .lbl{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rng .line{position:relative;height:6px;border-radius:3px;background:var(--soft)}
+.rng .span{position:absolute;top:0;bottom:0;border-radius:3px;background:color-mix(in srgb,var(--rent) 35%,transparent)}
+.rng .mk{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;background:var(--fg);transform:translateX(-1px)}
+.hero{border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:2px}
+.hero .per{font-family:var(--f-num);font-weight:700;font-size:clamp(28px,6vw,38px);line-height:1.2;font-variant-numeric:tabular-nums}
+.hero .per span{font:400 14px var(--f-body);color:var(--muted);margin-left:4px}
+.hero .tot,.hero .who{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.calc ul{margin:0;padding-left:1.1em;display:grid;gap:6px;font-size:13px}
+.calc li b{font-weight:700}
+.calc .f{font-family:var(--f-num);font-size:12px;color:var(--muted);display:block}
+.badge{position:absolute;top:-10px;right:10px;background:var(--sign);color:var(--sign-fg);font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px}
+.bd th,.bd td{white-space:normal}
+tr.sum td{font-weight:700;border-bottom:0;border-top:2px solid var(--fg)}
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.track{display:flex;height:16px;border-radius:4px;overflow:hidden;background:var(--soft)}
+.track i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.reward{background:var(--soft);border-radius:10px;padding:12px;display:grid;gap:4px}
+.reward .big{font-family:var(--f-num);font-weight:700;font-size:20px}
+.alert{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 10px;font-size:13px}
+textarea{width:100%;min-height:150px;font:13px var(--f-num);background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px}
+footer{font-size:12px;color:var(--muted);max-width:72ch}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M9 3 L5 23" stroke="var(--sign-fg)" stroke-width="2.4" stroke-linecap="round"/><path d="M17 3 L21 23" stroke="var(--sign-fg)" stroke-width="2.4" stroke-linecap="round"/><path d="M13 5v3M13 11.5v3M13 18v3" stroke="var(--sign-fg)" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <div><h1>わりかんドライブ</h1><p>レンタカーと車出しの交通費を比べて、1人いくらか出す</p></div>
+    </div>
+    <div class="seg" role="group" aria-label="使い方">
+      <button type="button" id="m-solo" aria-pressed="false">個人・旅行</button>
+      <button type="button" id="m-club" aria-pressed="true">部活遠征</button>
+    </div>
+  </header>
+
+  <div class="cols">
+    <div class="stack">
+      <!-- 1 route -->
+      <section class="panel">
+        <h2><span class="step">1</span>どこへ行く？</h2>
+        <div class="grid">
+          <label>出発地<div class="field"><input id="from" type="text" placeholder="例：名古屋大学"></div></label>
+          <label>目的地<div class="field"><input id="to" type="text" placeholder="例：長野県 松本市野球場"></div></label>
+        </div>
+        <label>経由地（なくてOK）<div class="field"><input id="via" type="text" placeholder="例：恵那峡SA"></div></label>
+        <label class="toggle"><input id="round" type="checkbox"> 往復で計算する</label>
+        <div class="row">
+          <button class="btn primary" type="button" id="lookupBtn">距離と高速代を調べる</button>
+          <button class="btn" type="button" id="stopBtn" hidden>止める</button>
+          <span class="hint" id="lookupMsg"></span>
+        </div>
+        <div class="aibox" id="aiBox" hidden></div>
+        <div class="grid">
+          <label>片道の距離 <span class="chip" id="chipDist" hidden>推定</span><div class="field" id="fDist"><input id="dist" type="number" min="0" inputmode="decimal"><span class="u">km</span></div></label>
+          <label>片道の高速代（普通車・ETC） <span class="chip" id="chipToll" hidden>推定</span><div class="field" id="fToll"><input id="toll" type="number" min="0" step="10" inputmode="numeric"><span class="u">円</span></div></label>
+        </div>
+        <div class="links" id="checkLinks"></div>
+      </section>
+
+      <!-- 2 people -->
+      <section class="panel">
+        <h2><span class="step">2</span>人数と日程</h2>
+        <div class="grid">
+          <label>人数<div class="field"><input id="people" type="number" min="1" inputmode="numeric"><span class="u">人</span></div></label>
+          <label>日数<div class="field"><input id="days" type="number" min="1" inputmode="numeric"><span class="u">日</span></div></label>
+          <label>現地での移動（合計）<div class="field"><input id="local" type="number" min="0" inputmode="decimal"><span class="u">km</span></div></label>
+          <label>ガソリン単価<div class="field"><input id="gas" type="number" min="0" inputmode="numeric"><span class="u">円/L</span></div></label>
+          <label>駐車場（1台あたり）<div class="field"><input id="park" type="number" min="0" step="100" inputmode="numeric"><span class="u">円</span></div></label>
+          <label>その他（全体）<div class="field"><input id="other" type="number" min="0" step="100" inputmode="numeric"><span class="u">円</span></div></label>
+          <label>予備費<div class="field"><input id="buffer" type="number" min="0" max="50" inputmode="numeric"><span class="u">%</span></div></label>
+        </div>
+      </section>
+
+      <!-- combo -->
+      <section class="panel">
+        <h2><span class="step">3</span>車の台数</h2>
+        <div class="grid">
+          <label><span><span class="sw" style="background:var(--rent);width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px"></span>レンタカー・カーシェア</span><div class="field"><input id="rCars" type="number" min="0" inputmode="numeric"><span class="u">台</span></div></label>
+          <label><span><span class="sw" style="background:var(--car);width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px"></span>車出し</span><div class="field"><input id="cCars" type="number" min="0" inputmode="numeric"><span class="u">台</span></div></label>
+        </div>
+        <div class="row"><button class="btn" type="button" id="autoBtn">人数から台数を決める</button><span class="hint" id="rNeed"></span></div>
+        <p class="hint">車出しがないときは0台、レンタカーを借りないときは0台にしてね。</p>
+      </section>
+
+      <!-- 3 rental -->
+      <section class="panel">
+        <h2><span class="sw" style="background:var(--rent)"></span>どこで借りる？</h2>
+        <div class="grid">
+          <label>車の大きさ<div class="field"><select id="rSize">
+            <option value="compact">コンパクト（5人乗り）</option>
+            <option value="minivan">ミニバン（7〜8人乗り）</option>
+            <option value="wagon">ワゴン・ハイエース（10人乗り）</option>
+          </select></div></label>
+        </div>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>会社</th><th>基本料金</th><th>補償</th><th>全体の合計</th><th>1人あたり</th></tr></thead>
+            <tbody id="coBody"></tbody>
+          </table>
+        </div>
+        <p class="hint">「全体の合計」と「1人あたり」は、車出しも含めてその会社で借りた場合の金額。料金は2024〜2025年に公開されていた通常期の目安（税込・会員割引なし）。「〜」は最安クラスの料金で、8人乗りはもっと高いことが多い。カーシェアはガソリン代込みで、20kmを超えた分に距離料金（20円/km）がかかる。予約前に公式サイトで確かめてね。</p>
+      </section>
+
+      <!-- 4 own cars -->
+      <section class="panel">
+        <h2><span class="sw" style="background:var(--car)"></span>車出しの車</h2>
+        <div class="grid">
+          <label>車のタイプ<div class="field"><select id="cType">
+            <option value="kei">軽自動車（4人）</option>
+            <option value="compact">コンパクト（5人）</option>
+            <option value="hybrid">ハイブリッド車（5人）</option>
+            <option value="suv">SUV（5人）</option>
+            <option value="minivan">ミニバン（7〜8人）</option>
+            <option value="minivanhv">ミニバン・ハイブリッド（7〜8人）</option>
+          </select></div></label>
+        </div>
+        <p class="hint" id="cFuelHint"></p>
+
+        <div style="display:grid;gap:8px">
+          <span style="font-size:13px;font-weight:700">運転してくれる人へのお礼</span>
+          <div class="choice" role="radiogroup" aria-label="お礼の決め方">
+            <label><input type="radio" name="thanks" value="0">なし<span>実費だけ精算</span></label>
+            <label><input type="radio" name="thanks" value="5">少し<span>5円/km</span></label>
+            <label><input type="radio" name="thanks" value="10">標準<span>10円/km</span></label>
+            <label><input type="radio" name="thanks" value="15">手厚め<span>15円/km</span></label>
+            <label><input type="radio" name="thanks" value="fixed">金額で決める<span>1人あたり定額</span></label>
+          </div>
+          <label id="fixedWrap" hidden>運転者1人へのお礼<div class="field"><input id="thanksFixed" type="number" min="0" step="500" inputmode="numeric"><span class="u">円</span></div></label>
+          <p class="hint">車は走るほどタイヤ・オイル・点検などの維持費がかかる。その分を走った距離で割ると、1kmあたり数円〜十数円になることが多い。迷ったら「標準」でいいと思う。</p>
+        </div>
+      </section>
+
+      <details class="panel">
+        <summary>計算の前提を変える（燃費など）</summary>
+        <div class="grid">
+          <label>レンタカーの燃費<div class="field"><input id="rKmpl" type="number" min="1" step="0.5" inputmode="decimal"><span class="u">km/L</span></div></label>
+          <label>車出しの燃費<div class="field"><input id="cKmpl" type="number" min="1" step="0.5" inputmode="decimal"><span class="u">km/L</span></div></label>
+          <label>レンタカー定員<div class="field"><input id="rSeats" type="number" min="1" inputmode="numeric"><span class="u">人</span></div></label>
+          <label>車出しの定員<div class="field"><input id="cSeats" type="number" min="1" inputmode="numeric"><span class="u">人</span></div></label>
+        </div>
+        <p class="hint">車の大きさ・タイプを選び直すと、この欄は目安の値に戻る。燃費は高速道路が中心のときの実燃費の目安。</p>
+      </details>
+    </div>
+
+    <section class="panel result" aria-live="polite">
+      <h2>1人あたりの交通費</h2>
+      <div class="hero">
+        <div class="per" id="per">—</div>
+        <div class="tot" id="tot"></div>
+        <div class="who" id="who"></div>
+        <div class="rng" id="rng" hidden></div>
+      </div>
+      <div id="alerts" style="display:grid;gap:6px"></div>
+
+      <div class="tbl">
+        <table class="bd">
+          <thead><tr><th>内訳</th><th>レンタカー分</th><th>車出し分</th><th>合計</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="bars" id="bars"></div>
+      <div class="legend" id="legend"></div>
+
+      <details class="calc" open>
+        <summary>計算のしかた</summary>
+        <ul id="formulas"></ul>
+      </details>
+
+      <div class="reward club-only" id="rewardBox">
+        <span style="font-size:12px;color:var(--muted)">運転者1人に渡す金額の目安</span>
+        <div class="big" id="rewardVal">—</div>
+        <p class="hint" id="rewardNote"></p>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" type="button" id="copyBtn">LINE用にコピー</button>
+        <button class="btn" type="button" id="resetBtn">初期値に戻す</button>
+      </div>
+      <textarea id="summary" hidden readonly aria-label="コピー用テキスト"></textarea>
+      <p class="hint" id="copyMsg" role="status"></p>
+    </section>
+  </div>
+
+  <footer>概算のための試作版。距離と高速代の「推定」はAIによる見積もりなので、Googleマップやドラぷらで確かめてから使ってね。車出しのお礼は実費と維持費の範囲にとどめ、運転への報酬にならないようにする。入力内容はこの端末のブラウザにだけ保存される。</footer>
+</div>
+
+<script>
+/* ---------- data ---------- */
+const SIZES={
+  compact:{name:"コンパクト",kmpl:18,seats:5},
+  minivan:{name:"ミニバン",kmpl:12,seats:8},
+  wagon:{name:"ワゴン10人乗り",kmpl:9,seats:10}
+};
+// 24h base (税込・通常期) [料金, 最安クラス表示か], ins = 免責補償/日。null = 公開情報なし
+const COMPANIES=[
+  {id:"times",name:"タイムズカーレンタル",url:"https://rental.timescar.jp/",
+    compact:[8470,false],minivan:[23870,false],wagon:null,ins:{compact:1100,minivan:1100,wagon:1100}},
+  {id:"toyota",name:"トヨタレンタカー",url:"https://rent.toyota.co.jp/",
+    compact:[8580,false],minivan:[13200,true],wagon:null,ins:{compact:1100,minivan:1100,wagon:1100}},
+  {id:"nippon",name:"ニッポンレンタカー",url:"https://www.nipponrentacar.co.jp/",
+    compact:[8910,false],minivan:[16610,true],wagon:null,ins:{compact:1100,minivan:2200,wagon:2200}},
+  {id:"orix",name:"オリックスレンタカー",url:"https://car.orix.co.jp/",
+    compact:[9900,false],minivan:[11550,true],wagon:null,ins:{compact:1100,minivan:2200,wagon:2200}},
+  {id:"nissan",name:"日産レンタカー",url:"https://nissan-rentacar.com/",
+    compact:[9790,false],minivan:[24090,false],wagon:null,ins:{compact:1650,minivan:1650,wagon:1650}},
+  {id:"budget",name:"バジェット",url:"https://www.budgetrentacar.co.jp/",
+    compact:[8580,false],minivan:[13200,true],wagon:null,ins:{compact:1430,minivan:1430,wagon:1430}}
+];
+// タイムズカーシェア：パック料金（24/48/72時間、以降1日ごと）＋距離料金20円/km（20km超過分）。ガソリン代込み
+const SHARE={id:"share",name:"タイムズカーシェア",url:"https://share.timescar.jp/",
+  packs:{compact:{cls:"ベーシック",p:[6600,9900,14300],extra:5500},minivan:{cls:"ミドル",p:[8800,13200,18700],extra:6600},wagon:null},
+  ins:330,perKm:20,freeKm:20};
+const CTYPES={
+  kei:{name:"軽自動車",kmpl:17,seats:4},
+  compact:{name:"コンパクト",kmpl:16,seats:5},
+  hybrid:{name:"ハイブリッド車",kmpl:22,seats:5},
+  suv:{name:"SUV",kmpl:12,seats:5},
+  minivan:{name:"ミニバン",kmpl:10,seats:8},
+  minivanhv:{name:"ミニバン・ハイブリッド",kmpl:16,seats:7}
+};
+const PRESETS={
+  club:{from:"",to:"",via:"",dist:120,toll:3000,round:true,people:12,days:1,local:20,gas:170,park:1000,other:0,buffer:10,
+        rSize:"minivan",rCars:1,cCars:1,cType:"compact",thanks:"10",thanksFixed:2000,company:"cheapest",customBase:20000,customIns:2200},
+  solo:{from:"",to:"",via:"",dist:150,toll:3500,round:true,people:2,days:2,local:40,gas:170,park:2000,other:0,buffer:10,
+        rSize:"compact",rCars:1,cCars:0,cType:"compact",thanks:"0",thanksFixed:2000,company:"cheapest",customBase:8000,customIns:1100}
+};
+const NUM=["dist","toll","people","days","local","gas","park","other","buffer","rCars","cCars","rKmpl","rSeats","cKmpl","cSeats","thanksFixed"];
+const TXT=["from","to","via"];
+const $=id=>document.getElementById(id);
+let mode="club", company="cheapest", customBase=20000, customIns=2200, aiFlags={dist:false,toll:false};
+const yen=n=>Math.round(n).toLocaleString("ja-JP")+"円";
+const fmt=n=>Math.round(n).toLocaleString("ja-JP");
+const up=(n,u)=>Math.ceil(n/u)*u;
+
+/* ---------- state ---------- */
+function setThanks(v){document.querySelectorAll('input[name=thanks]').forEach(r=>r.checked=(r.value===String(v)));}
+function getThanks(){const r=document.querySelector('input[name=thanks]:checked');return r?r.value:"0";}
+function applySize(){const s=SIZES[$("rSize").value];$("rKmpl").value=s.kmpl;$("rSeats").value=s.seats;}
+function applyCType(){const t=CTYPES[$("cType").value];$("cKmpl").value=t.kmpl;$("cSeats").value=t.seats;}
+function applyPreset(p){
+  NUM.concat(TXT).forEach(k=>{if(k in p)$(k).value=p[k]});
+  $("round").checked=p.round; $("rSize").value=p.rSize; $("cType").value=p.cType;
+  setThanks(p.thanks); company=p.company; customBase=p.customBase; customIns=p.customIns;
+  applySize(); applyCType(); setAi(false,false);
+}
+function read(){
+  const v={}; NUM.forEach(k=>v[k]=Math.max(0,parseFloat($(k).value)||0)); TXT.forEach(k=>v[k]=$(k).value.trim());
+  v.round=$("round").checked; v.rSize=$("rSize").value; v.cType=$("cType").value; v.thanks=getThanks(); return v;
+}
+// レンタカーで大人数を運び、残りを車出しで
+function autoCars(){
+  const v=read(), rs=Math.max(1,v.rSeats), cs=Math.max(1,v.cSeats), p=Math.max(1,v.people);
+  let rc=Math.floor(p/rs), cc=Math.ceil((p-rc*rs)/cs);
+  if(rc===0){rc=1;cc=0;}
+  // 車出し分がレンタカー1台より多くなるならレンタカーを1台増やす案と比べて台数の少ない方
+  if(cc>1 && Math.ceil(p/rs)<=rc+cc){rc=Math.ceil(p/rs);cc=0;}
+  $("rCars").value=rc; $("cCars").value=cc; render();
+}
+
+/* ---------- calc ---------- */
+function trip(v){const legs=v.round?2:1;return {km:v.dist*legs+v.local,toll:v.toll*legs,legs};}
+function sharePack(size,days){
+  const pk=SHARE.packs[size]; if(!pk) return null;
+  const d=Math.max(1,Math.ceil(days));
+  return d<=3? pk.p[d-1] : pk.p[2]+pk.extra*(d-3);
+}
+function perCar(o,v,t){
+  if(o.share) return {rent:o.base+o.ins, dist:Math.max(0,t.km-SHARE.freeKm)*SHARE.perKm, gas:0};
+  return {rent:(o.base+o.ins)*v.days, dist:0, gas:v.rKmpl? t.km/v.rKmpl*v.gas:0};
+}
+function options(v,t){
+  const opts=[];
+  COMPANIES.forEach(c=>{const b=c[v.rSize];
+    opts.push(b?{id:c.id,name:c.name,url:c.url,base:b[0],from:b[1],ins:c.ins[v.rSize]}:{id:c.id,name:c.name,url:c.url,na:true});});
+  const sp=sharePack(v.rSize,v.days);
+  opts.push(sp!=null?{id:"share",name:SHARE.name,url:SHARE.url,base:sp,ins:SHARE.ins,share:true,cls:SHARE.packs[v.rSize].cls}
+                    :{id:"share",name:SHARE.name,url:SHARE.url,na:true,share:true});
+  opts.push({id:"custom",name:"見積もりを自分で入れる",base:customBase,ins:customIns,custom:true});
+  opts.forEach(o=>{if(!o.na)o.pc=perCar(o,v,t);});
+  return opts;
+}
+function thanksPer(v,t){const raw=v.thanks==="fixed"? v.thanksFixed : t.km*(parseFloat(v.thanks)||0); return v.thanks==="fixed"?raw:up(raw,500);}
+// 1つの借り先で、レンタカー rc 台＋車出し cc 台
+function plan(v,t,o,thx){
+  const rc=v.rCars, cc=v.cCars, buf=v.buffer/100, pc=o&&!o.na? o.pc:{rent:0,dist:0,gas:0};
+  const R={rent:pc.rent*rc, dist:pc.dist*rc, gas:pc.gas*rc, toll:t.toll*rc, park:v.park*rc, thanks:0};
+  const C={rent:0, dist:0, gas:(v.cKmpl? t.km/v.cKmpl*v.gas:0)*cc, toll:t.toll*cc, park:v.park*cc, thanks:thx*cc};
+  const other=(rc+cc)>0? v.other:0;
+  const keys=["rent","dist","gas","toll","park","thanks"];
+  const T={}; keys.forEach(k=>T[k]=R[k]+C[k]); T.other=other;
+  const base=keys.reduce((a,k)=>a+T[k],0)+other;
+  T.buf=(base-T.thanks)*buf; T.total=base+T.buf;
+  R.sub=keys.reduce((a,k)=>a+R[k],0); C.sub=keys.reduce((a,k)=>a+C[k],0);
+  return {R,C,T};
+}
+function calc(v){
+  const t=trip(v), ppl=Math.max(1,v.people), thx=thanksPer(v,t);
+  const opts=options(v,t);
+  opts.forEach(o=>{if(!o.na){o.total=plan(v,t,o,thx).T.total; o.per=up(o.total/ppl,100);}});
+  const avail=opts.filter(o=>!o.na&&!o.custom);
+  const cheapest=avail.length? avail.reduce((a,b)=>a.total<=b.total?a:b).id:"custom";
+  const selId=company==="cheapest"?cheapest:company;
+  const sel=opts.find(o=>o.id===selId&&!o.na)||opts.find(o=>o.id===cheapest);
+  const P=plan(v,t,sel,thx);
+  const sorted=avail.slice().sort((a,b)=>a.per-b.per);
+  const range=(v.rCars>0&&sorted.length>1)? {min:sorted[0],max:sorted[sorted.length-1]}:null;
+  const driverActual=(v.cKmpl? t.km/v.cKmpl*v.gas:0)+t.toll+v.park;
+  return {t,ppl,opts,cheapest,sel,P,range,thx,driverActual,per:up(P.T.total/ppl,100)};
+}
+
+/* ---------- render ---------- */
+function render(){
+  const v=read(), r=calc(v), t=r.t, P=r.P, sel=r.sel;
+  const seats=v.rCars*v.rSeats+v.cCars*v.cSeats;
+  $("rNeed").textContent=`いまの台数で ${seats}席 / ${v.people}人`;
+
+  // company table
+  $("coBody").innerHTML=r.opts.map(o=>{
+    const checked=o.id===sel.id;
+    const tag=o.share?'<span class="share">カーシェア</span>':"";
+    if(o.na) return `<tr><td class="co"><label><input type="radio" name="co" value="${o.id}" disabled>${o.name}${tag}</label></td><td class="est" colspan="4" style="text-align:left">${o.share?"この大きさの車はなし":"公開料金なし"}・<a href="${o.url}" target="_blank" rel="noopener">公式で確認</a></td></tr>`;
+    if(o.custom) return `<tr class="${checked?"sel":""}"><td class="co"><label><input type="radio" name="co" value="custom" ${checked?"checked":""}>${o.name}</label></td>
+      <td class="custom"><input id="customBase" type="number" min="0" step="100" value="${customBase}" aria-label="24時間の料金"></td>
+      <td class="custom"><input id="customIns" type="number" min="0" step="100" value="${customIns}" aria-label="補償料（1日）"></td>
+      <td class="num">${yen(o.total)}</td><td class="num">${fmt(o.per)}円</td></tr>`;
+    const baseCell=o.share? `${fmt(o.base)}<div class="mini">${o.cls}・${Math.max(1,Math.ceil(v.days))*24}時間パック</div>` : `${fmt(o.base)}${o.from?"〜":""}<div class="mini">24時間</div>`;
+    const insCell=o.share? `${fmt(o.ins)}<div class="mini">1回</div>`:`${fmt(o.ins)}<div class="mini">1日</div>`;
+    return `<tr class="${checked?"sel":""}"><td class="co"><label><input type="radio" name="co" value="${o.id}" ${checked?"checked":""}>${o.name}${tag}${o.id===r.cheapest?'<span class="cheap">最安</span>':""}</label>${o.share?`<div class="mini">＋距離料金 ${yen(o.pc.dist)}/台（ガソリン代込み）</div>`:""}</td>
+      <td class="num">${baseCell}</td><td class="num">${insCell}</td>
+      <td class="num">${yen(o.total)}</td><td class="num">${fmt(o.per)}円</td></tr>`;
+  }).join("");
+  document.querySelectorAll('input[name=co]').forEach(el=>el.addEventListener("change",()=>{company=el.value;render();}));
+  const cb=$("customBase"), ci=$("customIns");
+  if(cb) cb.addEventListener("change",()=>{customBase=Math.max(0,+cb.value||0);company="custom";render();});
+  if(ci) ci.addEventListener("change",()=>{customIns=Math.max(0,+ci.value||0);company="custom";render();});
+  $("cFuelHint").textContent=`燃費は${CTYPES[v.cType].name}の実燃費の目安 ${v.cKmpl}km/L で計算。`;
+
+  // hero
+  const anyCar=v.rCars+v.cCars>0;
+  const selName=sel.custom?"自分の見積もり":sel.name;
+  $("per").innerHTML=anyCar? fmt(r.per)+"<span>円/人</span>":"—";
+  $("tot").textContent=anyCar? `全体 ${yen(P.T.total)}（${v.people}人で割り勘・予備費${v.buffer}%込み）`:"台数が0台";
+  const parts=[]; if(v.rCars) parts.push(`${selName}の${SIZES[v.rSize].name} ${v.rCars}台`); if(v.cCars) parts.push(`車出し ${v.cCars}台`);
+  $("who").textContent=parts.join(" ＋ ");
+  const rg=$("rng");
+  if(r.range&&anyCar){
+    const lo=r.range.min.per, hi=r.range.max.per, w=Math.max(1,hi-lo), pos=Math.min(100,Math.max(0,(r.per-lo)/w*100));
+    rg.innerHTML=`<div class="lbl">借りる会社によって ${fmt(lo)}〜${fmt(hi)}円/人（差 ${fmt(hi-lo)}円）</div><div class="line" aria-hidden="true"><div class="span" style="left:0;right:0"></div><div class="mk" style="left:${pos}%"></div></div><div class="lbl">安い：${r.range.min.name}　高い：${r.range.max.name}</div>`;
+    rg.hidden=false;
+  } else rg.hidden=true;
+
+  // breakdown
+  const rows=[["レンタル料（補償込み）","rent"],["カーシェア距離料金","dist"],["ガソリン代","gas"],["高速代","toll"],["駐車場","park"],["運転者へのお礼","thanks"]];
+  const c=(x)=>`<td class="num">${yen(x)}</td>`;
+  let html=rows.filter(([,k])=>P.T[k]>0||k==="rent"||k==="gas"||k==="toll").map(([n,k])=>`<tr><td>${n}</td>${c(P.R[k])}${c(P.C[k])}${c(P.T[k])}</tr>`).join("");
+  html+=`<tr><td>その他</td><td></td><td></td>${c(P.T.other)}</tr><tr><td>予備費 ${v.buffer}%</td><td></td><td></td>${c(P.T.buf)}</tr>`;
+  html+=`<tr class="sum"><td>合計</td>${c(P.R.sub)}${c(P.C.sub)}${c(P.T.total)}</tr>`;
+  $("tbody").innerHTML=html;
+
+  const bp=[["rent","レンタル","var(--rent)"],["dist","距離料金","#4f7fc0"],["gas","ガソリン","#7f9530"],["toll","高速","var(--sign)"],["park","駐車場","#7d6aa8"],["other","その他","#8a8f8c"],["thanks","お礼","var(--car)"],["buf","予備費","#c6ad72"]];
+  const tot=P.T.total||1;
+  $("bars").innerHTML=`<div class="track" role="img" aria-label="費用の内訳">${bp.map(([k,,col])=>P.T[k]>0?`<i style="width:${P.T[k]/tot*100}%;background:${col}" title="${yen(P.T[k])}"></i>`:"").join("")}</div>`;
+  $("legend").innerHTML=bp.filter(([k])=>P.T[k]>0).map(([k,n,col])=>`<span><b style="background:${col}"></b>${n} ${Math.round(P.T[k]/tot*100)}%</span>`).join("");
+
+  // formulas
+  const f=[];
+  f.push(`<li><b>1台の走行距離 ${fmt(t.km)}km</b><span class="f">片道${fmt(v.dist)}km${v.round?" × 往復2":""}${v.local?` ＋ 現地${fmt(v.local)}km`:""}</span></li>`);
+  if(v.rCars){
+    if(sel.share){
+      f.push(`<li><b>カーシェア料金 ${yen(P.R.rent)}</b><span class="f">${sel.cls}${Math.max(1,Math.ceil(v.days))*24}時間パック ${fmt(sel.base)}円 ＋ 補償 ${fmt(sel.ins)}円 × ${v.rCars}台</span></li>`);
+      f.push(`<li><b>距離料金 ${yen(P.R.dist)}</b><span class="f">（${fmt(t.km)}km − 最初の${SHARE.freeKm}km）× ${SHARE.perKm}円 × ${v.rCars}台</span></li>`);
+      f.push(`<li><b>ガソリン代 0円</b><span class="f">カーシェアは料金に含まれる</span></li>`);
+    } else {
+      f.push(`<li><b>レンタル料 ${yen(P.R.rent)}</b><span class="f">（24時間 ${fmt(sel.base)}円 ＋ 補償 ${fmt(sel.ins)}円）× ${v.days}日 × ${v.rCars}台</span></li>`);
+      f.push(`<li><b>ガソリン代（レンタカー）${yen(P.R.gas)}</b><span class="f">${fmt(t.km)}km ÷ ${v.rKmpl}km/L × ${v.gas}円 × ${v.rCars}台</span></li>`);
+    }
+  }
+  if(v.cCars) f.push(`<li><b>ガソリン代（車出し）${yen(P.C.gas)}</b><span class="f">${fmt(t.km)}km ÷ ${v.cKmpl}km/L × ${v.gas}円 × ${v.cCars}台</span></li>`);
+  f.push(`<li><b>高速代 ${yen(P.T.toll)}</b><span class="f">片道${fmt(v.toll)}円${v.round?" × 往復2":""} × ${v.rCars+v.cCars}台</span></li>`);
+  if(P.T.park) f.push(`<li><b>駐車場 ${yen(P.T.park)}</b><span class="f">${fmt(v.park)}円 × ${v.rCars+v.cCars}台</span></li>`);
+  if(P.T.thanks) f.push(`<li><b>お礼 ${yen(P.T.thanks)}</b><span class="f">${v.thanks==="fixed"?`定額 ${fmt(r.thx)}円`:`${fmt(t.km)}km × ${v.thanks}円 → 500円単位で切り上げ ${fmt(r.thx)}円`} × ${v.cCars}台</span></li>`);
+  f.push(`<li><b>予備費 ${yen(P.T.buf)}</b><span class="f">（合計 − お礼）× ${v.buffer}%</span></li>`);
+  f.push(`<li><b>1人あたり ${fmt(r.per)}円</b><span class="f">${yen(P.T.total)} ÷ ${v.people}人 → 100円単位で切り上げ</span></li>`);
+  $("formulas").innerHTML=f.join("");
+
+  // driver box
+  $("rewardVal").textContent=v.cCars? `お礼 ${yen(r.thx)} ＋ 実費 約${yen(r.driverActual)}`:"車出しなし";
+  $("rewardNote").textContent=v.cCars? `車1台あたり。実費はガソリン・高速・駐車場で、運転者が立て替えた分を精算する。`:"";
+
+  // alerts
+  const al=[];
+  if(anyCar&&seats<v.people) al.push(`席が足りない（${seats}席 / ${v.people}人）。台数を増やすか「人数から台数を決める」を押してね。`);
+  if(v.rCars&&sel.share&&t.km>400) al.push("カーシェアは距離料金がかかるので、長距離だとレンタカーより高くなりやすい。返却時間の延長にも注意。");
+  if(v.dist===0) al.push("片道の距離が0km。出発地と目的地を入れて「距離と高速代を調べる」を押してね。");
+  $("alerts").innerHTML=al.map(x=>`<div class="alert">${x}</div>`).join("");
+
+  // check links
+  if(v.from&&v.to){
+    const q=new URLSearchParams({api:"1",origin:v.from,destination:v.to,travelmode:"driving"}); if(v.via) q.set("waypoints",v.via);
+    $("checkLinks").innerHTML=`<a href="https://www.google.com/maps/dir/?${q}" target="_blank" rel="noopener">Googleマップで距離を確認</a><a href="https://www.driveplaza.com/dp/SearchTop" target="_blank" rel="noopener">ドラぷらで高速代を確認</a>`;
+  } else $("checkLinks").innerHTML="";
+
+  // summary
+  const route=v.from&&v.to?`${v.from}→${v.to}${v.via?`（${v.via}経由）`:""}`:"";
+  const lines=["【交通費の概算】"+route,`${v.round?"往復":"片道"} ${fmt(t.km)}km・${v.people}人・${v.days}日`, `車：${parts.join("＋")}`,
+    `1人 ${fmt(r.per)}円（全体 ${yen(P.T.total)}）`];
+  if(r.range&&anyCar) lines.push(`※借りる会社によって 1人 ${fmt(r.range.min.per)}〜${fmt(r.range.max.per)}円`);
+  if(v.cCars&&v.thanks!=="0") lines.push(`運転者へのお礼 1台 ${yen(r.thx)}（別に実費精算）`);
+  lines.push(`※予備費${v.buffer}%込み・ガソリン${v.gas}円/Lで計算した概算`);
+  $("summary").value=lines.join("\n");
+  save();
+}
+function save(){
+  try{localStorage.setItem("warikan-drive-v2",JSON.stringify({mode,v:read(),company,customBase,customIns,aiFlags}))}catch(e){}
+}
+
+/* ---------- AI lookup ---------- */
+function setAi(d,t){
+  aiFlags={dist:d,toll:t};
+  $("chipDist").hidden=!d; $("chipToll").hidden=!t;
+  $("fDist").classList.toggle("ai",d); $("fToll").classList.toggle("ai",t);
+}
+let sampleFn=null, ctl=null;
+const ERR={not_granted:"Claudeの利用が許可されなかったので、距離と高速代は手で入れてね。",sampling_disabled:"このアカウントでは自動で調べられない。手で入れてね。",
+  rate_limited:"少し時間をおいてからもう一度押してね。",session_expired:"ログインし直してからもう一度押してね。",
+  invalid_json:"うまく読み取れなかった。もう一度押してみて。",refused:"この内容では調べられなかった。地名を変えてみて。"};
+async function lookup(){
+  const from=$("from").value.trim(), to=$("to").value.trim(), via=$("via").value.trim();
+  if(!from||!to){$("lookupMsg").textContent="出発地と目的地を入れてね。";return;}
+  if(!sampleFn){$("lookupMsg").textContent="ここでは自動で調べられない。下のリンクで確かめて手で入れてね。";return;}
+  ctl=new AbortController();
+  $("lookupBtn").disabled=true; $("stopBtn").hidden=false;
+  $("lookupMsg").textContent="調べています…（20〜60秒くらい）"; $("aiBox").hidden=true;
+  const prompt=`日本国内を普通乗用車で移動する。
+出発地：${from}
+目的地：${to}
+${via?`経由地：${via}\n`:""}
+Googleマップのルート検索で最初に出る推奨ルート（高速道路を使うのが自然なら使う）を想定し、片道の
+・走行距離（km）
+・高速道路・有料道路の通行料金（普通車・ETC・割引なしの通常料金、円）
+を推定してください。
+
+推定のしかた：
+- まず使うインターチェンジと高速道路の区間を決め、「出発地→乗るIC」「IC間」「降りるIC→目的地」の距離を足して求める。
+- 余裕や迂回分を上乗せしない。直線距離の1.2〜1.3倍程度が道路距離の目安で、それを大きく超えるなら見直す。
+- 高速を使わないのが自然なら通行料金は0。
+- 地名があいまいなら最も一般的な場所を想定し、その想定をnoteに書く。
+
+次の形のJSONだけで答えてください：
+{"distance_km": 数値, "toll_yen": 数値, "route": "乗るIC→降りるICと道路名（40字以内）", "note": "想定や注意点（60字以内、なければ空文字）", "confidence": "high" | "medium" | "low"}`;
+  try{
+    const res=await sampleFn.json(prompt,{signal:ctl.signal});
+    const d=Number(res&&res.distance_km), t=Number(res&&res.toll_yen);
+    if(!isFinite(d)||d<=0) throw {code:"invalid_json"};
+    $("dist").value=Math.round(d); $("toll").value=isFinite(t)&&t>=0?Math.round(t/10)*10:0; setAi(true,true);
+    const conf={high:"高め",medium:"ふつう",low:"低め"}[res.confidence]||"ふつう";
+    $("aiBox").innerHTML=`<div><b>推定ルート</b>　${esc(res.route||"")}</div>${res.note?`<div>${esc(res.note)}</div>`:""}<div class="mini">確からしさ：${conf}。AIの推定なので、下のリンクで確かめて違ったら数字を直してね。</div>`;
+    $("aiBox").hidden=false; $("lookupMsg").textContent="";
+    render();
+  }catch(e){
+    $("lookupMsg").textContent=e&&e.code==="cancelled"?"止めました。":(ERR[e&&e.code]||"うまくいかなかった。もう一度押すか、手で入れてね。");
+    if(e&&(e.code==="not_granted"||e.code==="sampling_disabled")) $("lookupBtn").hidden=true;
+  }finally{$("lookupBtn").disabled=false;$("stopBtn").hidden=true;}
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ---------- wiring ---------- */
+function setMode(m,loadPreset){
+  mode=m; $("m-club").setAttribute("aria-pressed",m==="club"); $("m-solo").setAttribute("aria-pressed",m==="solo");
+  if(loadPreset) applyPreset(PRESETS[m]);
+  $("fixedWrap").hidden=getThanks()!=="fixed";
+  render();
+}
+$("m-club").onclick=()=>setMode("club",true);
+$("m-solo").onclick=()=>setMode("solo",true);
+$("rSize").addEventListener("change",()=>{applySize();render();});
+$("cType").addEventListener("change",()=>{applyCType();render();});
+document.querySelectorAll('input[name=thanks]').forEach(r=>r.addEventListener("change",()=>{$("fixedWrap").hidden=getThanks()!=="fixed";render();}));
+NUM.concat(TXT).forEach(k=>$(k).addEventListener("input",()=>{if(k==="dist")setAi(false,aiFlags.toll);if(k==="toll")setAi(aiFlags.dist,false);render();}));
+$("round").addEventListener("change",render);
+$("autoBtn").onclick=autoCars;
+$("lookupBtn").onclick=lookup;
+$("stopBtn").onclick=()=>ctl&&ctl.abort();
+$("resetBtn").onclick=()=>setMode(mode,true);
+$("copyBtn").onclick=()=>{
+  const t=$("summary").value;
+  navigator.clipboard.writeText(t).then(()=>{$("copyMsg").textContent="コピーした。LINEに貼り付けてね。";$("summary").hidden=true;})
+  .catch(()=>{const ta=$("summary");ta.hidden=false;ta.focus();ta.select();$("copyMsg").textContent="自動でコピーできなかったので、下のテキストを選んでコピーしてね。";});
+};
+
+(function init(){
+  let s=null; try{s=JSON.parse(localStorage.getItem("warikan-drive-v2"))}catch(e){}
+  if(s&&s.v){
+    applyPreset(PRESETS[s.mode||"club"]);
+    NUM.concat(TXT).forEach(k=>{if(k in s.v)$(k).value=s.v[k]});
+    $("round").checked=!!s.v.round; if(s.v.rSize)$("rSize").value=s.v.rSize; if(s.v.cType)$("cType").value=s.v.cType;
+    if(s.v.thanks)setThanks(s.v.thanks);
+    company=s.company||"cheapest"; customBase=s.customBase??customBase; customIns=s.customIns??customIns;
+    if(s.aiFlags)setAi(!!s.aiFlags.dist,!!s.aiFlags.toll);
+    setMode(s.mode||"club",false);
+  } else setMode("club",true);
+  (async()=>{
+    try{sampleFn=window.claude&&window.claude.use? await window.claude.use("sample"):null;}catch(e){sampleFn=null;}
+    if(!sampleFn){$("lookupBtn").hidden=true;$("lookupMsg").textContent="このページでは自動で調べられないので、Googleマップとドラぷらで調べた値を入れてね。";}
+  })();
+})();
+</script>
